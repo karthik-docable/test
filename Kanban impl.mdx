@@ -1,0 +1,106 @@
+# Project Plan for Notion-like Editor with Git Integration
+
+This document outlines the comprehensive plan for developing a Kanban-style task tracking system backed by GitHub issues. The project leverages Docable's GitHub app for seamless integration.
+
+## Task Overview
+
+Task is to create a Kanban-style task management system that synchronises with GitHub issues.
+
+## Key Features
+
+- Kanban-style task tracking
+- Integration with GitHub issues
+- Utilisation of Docable's GitHub app
+
+## Implementation Plan
+
+### Phase 1: Research and Planning
+
+- [ ] Conduct market research on existing solutions
+
+- [ ] Define task requirements and scope
+
+- [ ] Design system architecture
+
+- [ ] Set up project repository and initial configurations
+
+### Phase 2: Development
+
+- [ ] Develop the editor interface
+
+- [ ] Implement Git integration for version control
+
+- [ ] Develop Kanban board for task tracking
+
+- [ ] Integrate GitHub issues with the Kanban board
+
+- [ ] Test integration with Docable's GitHub app
+
+## Technical Requirements
+
+- Docable's GitHub app for integration
+- RESTful API for backend services
+
+## Timeline
+
+<div data-node-id="3b19cc86-e5ed-43d4-aa8e-b7909f1f119d" data-type="table-wrapper" class="table-wrapper-container">
+<table style="min-width: 150px"><colgroup><col style="min-width: 50px"><col style="min-width: 50px"><col style="min-width: 50px"></colgroup><tbody><tr><th colspan="1" rowspan="1"><p data-node-id="fca4ff36-f091-4efb-9a30-7974c3eacf16">Phase</p></th><th colspan="1" rowspan="1"><p data-node-id="1abeeb4a-2cbc-44a9-8e57-325b828c84f6">Start Date</p></th><th colspan="1" rowspan="1"><p data-node-id="ab56cd21-9ab7-4482-93d6-06f054114b7f">End Date</p></th></tr><tr><td colspan="1" rowspan="1"><p data-node-id="601d4ad7-c521-4d32-bd00-d1c6d364fb0e">Research and Planning</p></td><td colspan="1" rowspan="1"><p data-node-id="db8a889a-3fe4-44a5-8532-b64caadd875d">19 Aug 2025</p></td><td colspan="1" rowspan="1"><p data-node-id="15f72485-b1fd-4b67-857f-2f152bb7dea6">20 Aug 2025</p></td></tr><tr><td colspan="1" rowspan="1"><p data-node-id="09438921-aaad-4392-848a-218487e911dd">Development</p></td><td colspan="1" rowspan="1"><p data-node-id="e1aca3b1-740b-4cea-98f2-9a051e0e22fc">21 Aug 2025</p></td><td colspan="1" rowspan="1"><p data-node-id="1acc8aff-038a-46bc-b987-2dbbb2044f09">5 Sept 2025</p></td></tr></tbody></table>
+</div>
+
+## Workflow
+
+Github issue should be our single source of truth. Our firebase should always be updated according to Github and Docable client should reflect firebase. There will be the following two sequence of data flow.
+
+1. Docable -&gt; Firebase Function -&gt; Firestore && Github
+2. Github -&gt; WebHook -&gt; update Firestore -&gt; Docable
+
+### Firestore Collection
+
+Collection : `projects/{projectId}/issues`
+
+Github User Id : `users/{userId}/integrations/{githubinfo_id}`
+
+<div data-node-id="8563d36f-66da-41a8-9784-aa186d83a5e4" data-type="callout-critical">
+Repository is the codebase not the docs repo.
+</div>
+
+Document structure for issue object in firestore.
+
+```javascript
+{
+  "id": "kanban_boardId_UUID",
+  "issueId": "github issue id"
+  "title": "issue title",
+  "description": "issue description", // MDX,
+  "status": "NOT_STARTED" || "IN_PROGRESS" == Open || "COMPLETED" ||      "NOT_PLANNED" == Closed,
+  "assigned_to": [
+    {
+      "userId": "docable_user_id",
+      "githubId": "github_user_id", // Get this from integration object
+    }
+  ],
+  "branch": {
+    "name": "branch_name",
+    "link": "link to the branch"
+  },
+  "type": "BUG" || "FEATURE" || "TASK",
+  "label": "", // All pre-defined labels 
+  "ts_created": timestamp,
+  "ts_updated": timestamp,
+}
+```
+
+### Firebase function
+
+### Callable and WebHooks
+
+**Docable -&gt; Github** - in this case docable client will call the appropriate firebase functions. There will following functions -
+
+- `CreateIssue` - This creates a Github issue and if successful creates a issue object in firestore. The below link documents the REST API for creating an issue.\
+  <https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#create-an-issue>
+- `UpdateIssue` - This updates any required field in Github. The below link documents the REST API to update an issue. <https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#update-an-issue>
+- `AssignIssue` - This allows to assign this issue to particular user. This will assign the issue to the given list of users using their `github_id` .
+
+**Github -&gt; Docable -** If in case user directly interacts with a issue in Github we will need to update the firestore document to reflect the change. For this we will use WebHooks via the Docable Github app.
+
+For details related to the Webhook - <https://docs.github.com/en/webhooks/webhook-events-and-payloads?actionType=assigned#issues>

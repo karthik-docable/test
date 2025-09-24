@@ -1,0 +1,147 @@
+# Migration Plan
+
+Previously github is the single source of truth, we have to migrate to firebase real-time database. To make docable usable without github.
+
+<div data-node-id="400961db-dcc0-496b-8c89-c9c03ebd527e" data-type="callout-idea">
+Realtime DB is a single <strong>JSON tree</strong>
+</div>
+
+## Storing file contents
+
+we have figured out 2 ways to store content of files in JSON Tree
+
+<div activeindex="0" tabs="Tab 1,Tab 2" data-type="custom-tab-view" class="custom-tab-view">
+<div tabindex="0" data-type="tab-view-content" class="tab-view-content"><p data-node-id="cbc61dea-9d59-44af-96c3-f3bbcf988a9c"><strong>Store Folders as Objects (hierarchical):</strong></p><expandable-block title="schema" open="false"><pre data-node-id="f58fb66c-807d-48a1-8c19-656b0082ad9a"><code class="language-json">{
+  "fileContents": {
+    "workspaceA": {
+      "project1": {
+        "folders": {
+          "folder1": {
+            "name": "Docs",
+            "files": {
+              "file1": {
+                "name": "intro.mdx",
+                "content": "# Hello World",
+                "updatedAt": 1695383123000,
+                "updatedBy": "aliceId"
+              }
+            },
+            "folders": {
+              "folder2": {
+                "name": "Subfolder",
+                "files": {
+                  "file2": {
+                    "name": "details.mdx",
+                    "content": "More text",
+                    "updatedAt": 1695383130000,
+                    "updatedBy": "aliceId"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre></expandable-block><ul data-node-id="fa9264d9-a8b9-43bd-a8de-50256467b207"><li><p data-node-id="ece114f2-4374-4e74-bfea-d8c5ddfdc462">nesting folders and files directly.</p></li><li><p data-node-id="e8525a7e-cbc9-4d3e-8232-4f544aef87fe">Easy to model a <strong>true tree</strong>, but harder to query (deeply nested).</p></li></ul></div><div tabindex="1" data-type="tab-view-content" class="tab-view-content"><div tabindex="0" data-type="tab-view-content" class="tab-view-content"><p data-node-id="f32529d3-1808-463b-a149-763d1125d595"><strong>Store Folders as Objects (hierarchical):</strong></p><expandable-block title="schema" open="true"><pre data-node-id="d06f7e25-5747-4453-85e7-67e733293235"><code class="language-json">{
+  "fileContents": {
+    "workspaceA": {
+      "project1": {
+        "folders": {
+          "folder1": {
+            "name": "Docs",
+            "files": {
+              "file1": {
+                "name": "intro.mdx",
+                "content": "# Hello World",
+                "updatedAt": 1695383123000,
+                "updatedBy": "aliceId"
+              }
+            },
+            "folders": {
+              "folder2": {
+                "name": "Subfolder",
+                "files": {
+                  "file2": {
+                    "name": "details.mdx",
+                    "content": "More text",
+                    "updatedAt": 1695383130000,
+                    "updatedBy": "aliceId"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre></expandable-block><ul data-node-id="38ba1bf9-c1d1-4868-ac4f-7a31cacc7712"><li><p data-node-id="4a77c48d-b321-4588-ac84-1dab3c59dceb">You nest folders and files directly.</p></li><li><p data-node-id="93533a67-21e9-4787-80e1-1140f38ff814">Easy to model a <strong>true tree</strong>, but harder to query (deeply nested).<strong>Store Folders as Objects (hierarchical):</strong></p><expandable-block title="schema" open="true"><pre data-node-id="5f99dbd7-ac9b-4869-a49a-ab197ae2427b"><code class="language-json">{
+  "fileContents": {
+    "workspaceA": {
+      "project1": {
+        "folders": {
+          "folder1": {
+            "name": "Docs",
+            "files": {
+              "file1": {
+                "name": "intro.mdx",
+                "content": "# Hello World",
+                "updatedAt": 1695383123000,
+                "updatedBy": "aliceId"
+              }
+            },
+            "folders": {
+              "folder2": {
+                "name": "Subfolder",
+                "files": {
+                  "file2": {
+                    "name": "details.mdx",
+                    "content": "More text",
+                    "updatedAt": 1695383130000,
+                    "updatedBy": "aliceId"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre></expandable-block><ul data-node-id="ea540fba-3b6f-4edb-abc3-77134c850973"><li><p data-node-id="f83dd45d-83d6-4847-8834-52e294685fec">You nest folders and files directly.</p></li><li><p data-node-id="0debe697-9f1c-40b8-8059-7bfaa9122b62">Easy to model a <strong>true tree</strong>, but harder to query (deeply nested).🔹 Option 2: Flat Files with Parent Reference (recommended)</p><pre data-node-id="3d982797-f838-4eda-bee3-1db3324a231c"><code class="language-plaintext">🔹 Option 2: Flat Files with Parent Reference (recommended)</code></pre></li></ul></li></ul></div><p data-node-id="14d3cd6f-dee7-42ad-8908-f522096d0959"><strong>Flat Files with Parent Reference (recommended):</strong></p><expandable-block title="Schema" open="false"><pre data-node-id="c5178505-acf8-4b3e-8119-566821407305"><code class="language-json">{
+  "fileContents": {
+    "workspaceA": {
+      "project1": {
+        "files": {
+          "file1": {
+            "name": "intro.mdx",
+            "content": "# Hello World",
+            "parentFolder": null,   // root
+            "updatedAt": 1695383123000,
+            "updatedBy": "aliceId"
+          },
+          "file2": {
+            "name": "details.mdx",
+            "content": "Subfolder file",
+            "parentFolder": "folder2",
+            "updatedAt": 1695383130000,
+            "updatedBy": "aliceId"
+          }
+        },
+        "folders": {
+          "folder1": {
+            "name": "Docs",
+            "parentFolder": null   // root folder
+          },
+          "folder2": {
+            "name": "Subfolder",
+            "parentFolder": "folder1"
+          }
+        }
+      }
+    }
+  }
+}</code></pre></expandable-block><ul data-node-id="4a02cf6e-e238-48ef-b9df-3c0033e72050"><li><p data-node-id="73f05dfc-9a3b-46d7-82c8-687d6c1a3fa0">Each <strong>file</strong> has <code>parentFolder</code> (or <code>null</code> if it’s at root).</p></li><li><p data-node-id="b1bfdeba-b4ff-46c0-9b35-f1a171366ad4">Each <strong>folder</strong> also has <code>parentFolder</code>.</p></li><li><p data-node-id="7fba6685-3240-4827-8e1c-ee25b0751832">This way you can reconstruct the <strong>tree UI</strong> just by traversing parents.</p></li><li><p data-node-id="f7e43cca-246c-4a0b-a941-845c69c0985d">Much easier for querying/updating in RTDB since everything is “flat” under <code>files</code> and <code>folders</code>.</p></li></ul></div>
+</div>

@@ -8,32 +8,37 @@ Realtime DB is a single <strong>JSON tree</strong>
 
 ## Storing file contents
 
-we have figured out 2 ways to store content of files in JSON Tree
+we have figured out 2 ways to store content of files in JSON Tree.
 
-<div activeindex="0" tabs="Tab 1,Tab 2" data-type="custom-tab-view" class="custom-tab-view">
+<div activeindex="1" tabs="Tab 1,Tab 2" data-type="custom-tab-view" class="custom-tab-view">
 <div tabindex="0" data-type="tab-view-content" class="tab-view-content"><p data-node-id="cbc61dea-9d59-44af-96c3-f3bbcf988a9c"><strong>Store Folders as Objects (hierarchical):</strong></p><expandable-block title="schema" open="false"><pre data-node-id="f58fb66c-807d-48a1-8c19-656b0082ad9a"><code class="language-json">{
   "fileContents": {
     "workspaceA": {
       "project1": {
         "folders": {
-          "folder1": {
-            "name": "Docs",
-            "files": {
-              "file1": {
-                "name": "intro.mdx",
-                "content": "# Hello World",
-                "updatedAt": 1695383123000,
-                "updatedBy": "aliceId"
-              }
-            },
+          "root": {
+            "name": "Root",
             "folders": {
-              "folder2": {
-                "name": "Subfolder",
+              "folder1": {
+                "name": "Docs",
+                "folders": {
+                  "folder2": {
+                    "name": "Subfolder",
+                    "files": {
+                      "file2": {
+                        "name": "details.mdx",
+                        "content": "More text",
+                        "updatedAt": 1695383130000,
+                        "updatedBy": "aliceId"
+                      }
+                    }
+                  }
+                },
                 "files": {
-                  "file2": {
-                    "name": "details.mdx",
-                    "content": "More text",
-                    "updatedAt": 1695383130000,
+                  "file1": {
+                    "name": "intro.mdx",
+                    "content": "# Hello World",
+                    "updatedAt": 1695383123000,
                     "updatedBy": "aliceId"
                   }
                 }
@@ -144,4 +149,70 @@ we have figured out 2 ways to store content of files in JSON Tree
     }
   }
 }</code></pre></expandable-block><ul data-node-id="4a02cf6e-e238-48ef-b9df-3c0033e72050"><li><p data-node-id="73f05dfc-9a3b-46d7-82c8-687d6c1a3fa0">Each <strong>file</strong> has <code>parentFolder</code> (or <code>null</code> if it’s at root).</p></li><li><p data-node-id="b1bfdeba-b4ff-46c0-9b35-f1a171366ad4">Each <strong>folder</strong> also has <code>parentFolder</code>.</p></li><li><p data-node-id="7fba6685-3240-4827-8e1c-ee25b0751832">This way you can reconstruct the <strong>tree UI</strong> just by traversing parents.</p></li><li><p data-node-id="f7e43cca-246c-4a0b-a941-845c69c0985d">Much easier for querying/updating in RTDB since everything is “flat” under <code>files</code> and <code>folders</code>.</p></li></ul></div>
+</div>
+
+---
+
+# Flow
+
+- During authentication flow, user can choose either github based or database based flow. Pricing varies based on chosen plan.
+- If user selects github then, github is single source of truth. Content will be stored in github and local filesystem
+- If user selects database then, all contents of will be stored in realtime database and local filesystem
+
+**Current Implementation**
+
+- Now, It properly handles the github flow to save files.
+- Have to modify it to handle alternate realtime db flow.
+
+### R&D(Using 2nd Recommended Schema):
+
+Tiptap editor supports getting json value of content. so we store it in db. And editor takes rendering part itslef.
+
+- We are going store the JSON Content as follows:
+
+<div activeindex="1" tabs="Example Schema,Getting JSON content" data-type="custom-tab-view" class="custom-tab-view">
+<div tabindex="0" data-type="tab-view-content" class="tab-view-content"><expandable-block title="Content" open="false"><pre data-node-id="8b271a8a-f6e4-4104-8b1d-f16df00a21c6"><code class="language-json">{
+  "fileContents": {
+    "workspaceA": {
+      "project1": {
+        "files": {
+          "file1": {
+            "name": "intro.mdx",
+            "content": {.....}, //JSON from editor
+            "parentFolder": null,   // root
+            "updatedAt": 1695383123000,
+            "updatedBy": "aliceId"
+          },
+          "file2": {
+            "name": "details.mdx",
+            "content": "Subfolder file",
+            "parentFolder": "folder2",
+            "updatedAt": 1695383130000,
+            "updatedBy": "aliceId"
+          }
+        },
+        "folders": {
+          "folder1": {
+            "name": "Docs",
+            "parentFolder": null   // root folder
+          },
+          "folder2": {
+            "name": "Subfolder",
+            "parentFolder": "folder1"
+          }
+        }
+      }
+    }
+  }
+}</code></pre></expandable-block></div><div tabindex="1" data-type="tab-view-content" class="tab-view-content"><p data-node-id="831af974-1ddd-494f-a2c6-e2d6f872df3d">We already have activeEditor State. Can be used to get content like :</p><pre data-node-id="2e7f18de-1e6a-4074-a5ae-99ca42d8feea"><code class="language-typescript">import { useActiveEditorContext } from '@/lib/components/state_components/state_active_editor';
+
+export const ExampleComponent = ()=&gt;{
+   const {activeEditor} = useActiveEditorContext();
+   const JSON_CONTENT = activeEditor?.getJSON()
+   // handling......
+}</code></pre></div>
+</div>
+
+<div data-node-id="dcbca59c-01c3-4d1c-8e77-ddd4e23b62c3" data-type="callout-warning">
+Add security rules to RealtimeDb. So, can't access users data
 </div>

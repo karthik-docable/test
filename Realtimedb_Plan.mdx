@@ -10,7 +10,7 @@ Realtime DB is a single <strong>JSON tree</strong>
 
 we have figured out 2 ways to store content of files in JSON Tree.
 
-<div activeindex="1" tabs="Tab 1,Tab 2" data-type="custom-tab-view" class="custom-tab-view">
+<div activeindex="0" tabs="Tab 1,Tab 2" data-type="custom-tab-view" class="custom-tab-view">
 <div tabindex="0" data-type="tab-view-content" class="tab-view-content"><p data-node-id="cbc61dea-9d59-44af-96c3-f3bbcf988a9c"><strong>Store Folders as Objects (hierarchical):</strong></p><expandable-block title="schema" open="false"><pre data-node-id="f58fb66c-807d-48a1-8c19-656b0082ad9a"><code class="language-json">{
   "fileContents": {
     "workspaceA": {
@@ -166,11 +166,13 @@ we have figured out 2 ways to store content of files in JSON Tree.
 
 ### R&D(Using 2nd Recommended Schema):
 
+### 1.Reading the Content
+
 Tiptap editor supports getting json value of content. so we store it in db. And editor takes rendering part itslef.
 
 - We are going store the JSON Content as follows:
 
-<div activeindex="1" tabs="Example Schema,Getting JSON content" data-type="custom-tab-view" class="custom-tab-view">
+<div activeindex="0" tabs="Example Schema,Getting JSON content" data-type="custom-tab-view" class="custom-tab-view">
 <div tabindex="0" data-type="tab-view-content" class="tab-view-content"><expandable-block title="Content" open="false"><pre data-node-id="8b271a8a-f6e4-4104-8b1d-f16df00a21c6"><code class="language-json">{
   "fileContents": {
     "workspaceA": {
@@ -205,14 +207,102 @@ Tiptap editor supports getting json value of content. so we store it in db. And 
     }
   }
 }</code></pre></expandable-block></div><div tabindex="1" data-type="tab-view-content" class="tab-view-content"><p data-node-id="831af974-1ddd-494f-a2c6-e2d6f872df3d">We already have activeEditor State. Can be used to get content like :</p><pre data-node-id="2e7f18de-1e6a-4074-a5ae-99ca42d8feea"><code class="language-typescript">import { useActiveEditorContext } from '@/lib/components/state_components/state_active_editor';
-
 export const ExampleComponent = ()=&gt;{
-   const {activeEditor} = useActiveEditorContext();
-   const JSON_CONTENT = activeEditor?.getJSON()
-   // handling......
-}</code></pre></div>
+ const {activeEditor} = useActiveEditorContext(); 
+ const JSON_CONTENT = activeEditor?.getJSON() 
+ // handling...... 
+}</code></pre></div><div tabindex="0" data-type="tab-view-content" class="tab-view-content"><p data-node-id="50f6d0bb-d30b-45a6-ae25-d75e9b2dcc05"></p></div>
 </div>
 
 <div data-node-id="dcbca59c-01c3-4d1c-8e77-ddd4e23b62c3" data-type="callout-warning">
-Add security rules to RealtimeDb. So, can't access users data
+ Add security rules to RealtimeDb. So, others can't access users data.
 </div>
+
+### 2.Example Operations
+
+<div activeindex="0" tabs="imports,save/update content,getFile,listenFile,deleteFile" data-type="custom-tab-view" class="custom-tab-view">
+<div tabindex="0" data-type="tab-view-content" class="tab-view-content"><pre data-node-id="c41ce58f-614c-41d9-bc1f-861a6841fd99"><code class="language-javascript">import { getDatabase, ref, set, update, get, remove, onValue } from "firebase/database";
+const db = getDatabase();
+</code></pre></div><div tabindex="1" data-type="tab-view-content" class="tab-view-content"><pre data-node-id="0d98ebf7-bec1-4dc4-bbf8-bb0dfc688256"><code class="language-javascript">function saveFile(workspaceId, projectId, fileId, data) {
+  return set(ref(db, `fileContents/${workspaceId}/${projectId}/files/${fileId}`), data);
+}
+</code></pre></div><div tabindex="2" data-type="tab-view-content" class="tab-view-content"><pre data-node-id="9b4f6ca9-b6fc-4e09-92bc-b1d704adbaf5"><code class="language-javascript">async function getFile(workspaceId, projectId, fileId) {
+  const snap = await get(ref(db, `fileContents/${workspaceId}/${projectId}/files/${fileId}`));
+  return snap.exists() ? snap.val() : null;
+}
+</code></pre></div><div tabindex="3" data-type="tab-view-content" class="tab-view-content"><pre data-node-id="81aed803-e3f4-4aa0-94d4-4a5f5b859909"><code class="language-javascript">function listenFile(workspaceId, projectId, fileId, cb) {
+  const fileRef = ref(db, `fileContents/${workspaceId}/${projectId}/files/${fileId}`);
+  onValue(fileRef, snap =&gt; cb(snap.val()));
+}
+</code></pre></div><div tabindex="4" data-type="tab-view-content" class="tab-view-content"><pre data-node-id="cc153263-a608-41fb-8bc7-7348750e842d"><code class="language-javascript">function listenFile(workspaceId, projectId, fileId, cb) {
+  const fileRef = ref(db, `fileContents/${workspaceId}/${projectId}/files/${fileId}`);
+  onValue(fileRef, snap =&gt; cb(snap.val()));
+}
+</code></pre></div>
+</div>
+
+### 3. Building Tree from db data
+
+<expandable-block title="Content" open="false">
+<pre data-node-id="fe1c0fe7-965e-4db8-b0e8-fa66f38fa081"><code class="language-javascript">// Read Project Data from RTDB
+import { getDatabase, ref, get } from "firebase/database";
+
+const db = getDatabase();
+
+async function getProjectData(workspaceId, projectId) {
+  const snap = await get(ref(db, `fileContents/${workspaceId}/${projectId}`));
+  if (!snap.exists()) return { folders: {}, files: {} };
+
+  const data = snap.val();
+  return {
+    folders: data.folders || {},
+    files: data.files || {}
+  };
+}
+
+// Use buildTree
+function buildTree(folders, files) {
+  const folderMap = {};
+  Object.entries(folders || {}).forEach(([id, folder]) =&gt; {
+    folderMap[id] = { id, ...folder, folders: [], files: [] };
+  });
+
+  Object.values(folderMap).forEach(folder =&gt; {
+    if (folder.parentFolder &amp;&amp; folderMap[folder.parentFolder]) {
+      folderMap[folder.parentFolder].folders.push(folder);
+    }
+  });
+
+  Object.entries(files || {}).forEach(([id, file]) =&gt; {
+    if (file.parentFolder &amp;&amp; folderMap[file.parentFolder]) {
+      folderMap[file.parentFolder].files.push({ id, ...file });
+    }
+  });
+
+  const root = {
+    id: "root",
+    name: "Root",
+    folders: [],
+    files: Object.entries(files || {})
+      .filter(([_, f]) =&gt; f.parentFolder === null)
+      .map(([id, f]) =&gt; ({ id, ...f }))
+  };
+
+  Object.values(folderMap).forEach(folder =&gt; {
+    if (!folder.parentFolder) root.folders.push(folder);
+  });
+
+  return root;
+}
+// Combine
+async function getProjectTree(workspaceId, projectId) {
+  const { folders, files } = await getProjectData(workspaceId, projectId);
+  return buildTree(folders, files);
+}
+// Example Usage
+getProjectTree("workspaceA", "project1").then(tree =&gt; {
+  console.log(JSON.stringify(tree, null, 2));
+});
+
+</code></pre>
+</expandable-block>

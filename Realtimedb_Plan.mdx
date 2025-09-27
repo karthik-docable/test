@@ -172,8 +172,8 @@ Tiptap editor supports getting json value of content. so we store it in db. And 
 
 - We are going store the JSON Content as follows:
 
-<div activeindex="0" tabs="Example Schema,Getting JSON content" data-type="custom-tab-view" class="custom-tab-view">
-<div tabindex="0" data-type="tab-view-content" class="tab-view-content"><expandable-block title="Content" open="false"><pre data-node-id="8b271a8a-f6e4-4104-8b1d-f16df00a21c6"><code class="language-json">{
+<div activeindex="1" tabs="Example Schema,Getting JSON content" data-type="custom-tab-view" class="custom-tab-view">
+<div tabindex="0" data-type="tab-view-content" class="tab-view-content"><expandable-block title="Content" open="true"><pre data-node-id="8b271a8a-f6e4-4104-8b1d-f16df00a21c6"><code class="language-json">{
   "fileContents": {
     "workspaceA": {
       "project1": {
@@ -214,13 +214,13 @@ export const ExampleComponent = ()=&gt;{
 }</code></pre></div><div tabindex="0" data-type="tab-view-content" class="tab-view-content"><p data-node-id="50f6d0bb-d30b-45a6-ae25-d75e9b2dcc05"></p></div>
 </div>
 
-<div data-node-id="283cf0ca-52dd-440d-91df-73e75e21728d" data-type="callout-warning">
+<div data-node-id="90eff7de-5e4b-43ed-9ce0-4937a20f8b08" data-type="callout-warning">
 Add security rules to RealtimeDb. So, others can't access users data.
 </div>
 
 ### 2.Example Operations
 
-<div activeindex="3" tabs="imports,save/update content,getFile,listenFile,deleteFile" data-type="custom-tab-view" class="custom-tab-view">
+<div activeindex="0" tabs="imports,save/update content,getFile,listenFile,deleteFile" data-type="custom-tab-view" class="custom-tab-view">
 <div tabindex="0" data-type="tab-view-content" class="tab-view-content"><pre data-node-id="c41ce58f-614c-41d9-bc1f-861a6841fd99"><code class="language-javascript">import { getDatabase, ref, set, update, get, remove, onValue } from "firebase/database";
 const db = getDatabase();</code></pre></div><div tabindex="1" data-type="tab-view-content" class="tab-view-content"><pre data-node-id="0d98ebf7-bec1-4dc4-bbf8-bb0dfc688256"><code class="language-javascript">function saveFile(workspaceId, projectId, fileId, data) {
   return set(ref(db, `fileContents/${workspaceId}/${projectId}/files/${fileId}`), data);
@@ -238,46 +238,72 @@ const db = getDatabase();</code></pre></div><div tabindex="1" data-type="tab-vie
 
 ### 3. Building Tree from db data
 
-<expandable-block title="Content" open="false">
-<pre data-node-id="fe1c0fe7-965e-4db8-b0e8-fa66f38fa081"><code class="language-javascript">// Read Project Data from RTDB
+```javascript
+// Read Project Data from RTDB
 import { getDatabase, ref, get } from "firebase/database";
-</code></pre><p data-node-id="9136481d-d2f5-48f5-b3d3-04173e31be51"><code>const db = getDatabase();</code></p><p data-node-id="20131055-6d62-4414-a137-16911bd4fbfc"><code>async function getProjectData(workspaceId, projectId) { const snap = await get(ref(db, fileContents/${workspaceId}/${projectId})); if (!snap.exists()) return { folders: {}, files: {} };</code></p><p data-node-id="493ca3fc-e6c9-4a32-98cb-b19694c74fca"><code>const data = snap.val(); return { folders: data.folders || {}, files: data.files || {} }; }</code></p><p data-node-id="d15d04cb-b743-48e6-93a3-75a5cacb9c13"><code>// Use buildTree function buildTree(folders, files) { const folderMap = {}; Object.entries(folders || {}).forEach(([id, folder]) =&gt; { folderMap[id] = { id, ...folder, folders: [], files: [] }; });</code></p><p data-node-id="85c86e54-738b-4d8e-80ca-e70753cedbde"><code>Object.values(folderMap).forEach(folder =&gt; { if (folder.parentFolder &amp;&amp; folderMap[folder.parentFolder]) { folderMap[folder.parentFolder].folders.push(folder); } });</code></p><p data-node-id="2471d720-7989-4388-a9dd-fb95813768de"><code>Object.entries(files || {}).forEach(([id, file]) =&gt; { if (file.parentFolder &amp;&amp; folderMap[file.parentFolder]) { folderMap[file.parentFolder].files.push({ id, ...file }); } });</code></p><p data-node-id="ab899a17-6605-4b6b-805e-c583be385bc1"><code>const root = { id: "root", name: "Root", folders: [], files: Object.entries(files || {}) .filter(([_, f]) =&gt; f.parentFolder === null) .map(([id, f]) =&gt; ({ id, ...f })) };</code></p><p data-node-id="291ad6b1-ffc0-4d02-b006-afe99fd8b445"><code>Object.values(folderMap).forEach(folder =&gt; { if (!folder.parentFolder) root.folders.push(folder); });</code></p><p data-node-id="2f4bc057-e0cc-4b21-89b9-440851b5160a"><code>return root; } // Combine async function getProjectTree(workspaceId, projectId) { const { folders, files } = await getProjectData(workspaceId, projectId); return buildTree(folders, files); } // Example Usage getProjectTree("workspaceA", "project1").then(tree =&gt; { console.log(JSON.stringify(tree, null, 2)); });</code></p><p data-node-id="a1d7f98d-1a68-45da-8feb-1193612dfedc"></p>
-</expandable-block>
-
-### 4. Realtime Project Tree Listener
-
-<expandable-block title="Content" open="false">
-<pre data-node-id="bd5863b6-b6b8-4cf7-8e0f-7091c8bd12b5"><code class="language-javascript">
-import { getDatabase, ref, onValue } from "firebase/database";
 
 const db = getDatabase();
 
-function listenProjectTree(workspaceId, projectId, callback) {
-  const projectRef = ref(db, `fileContents/${workspaceId}/${projectId}`);
+async function getProjectData(workspaceId, projectId) {
+  const snap = await get(ref(db, `fileContents/${workspaceId}/${projectId}`));
+  if (!snap.exists()) return { folders: {}, files: {} };
 
-  return onValue(projectRef, (snap) =&gt; {
-    if (!snap.exists()) {
-      callback({ id: "root", name: "Root", folders: [], files: [] });
-      return;
-    }
-
-    const data = snap.val();
-    const folders = data.folders || {};
-    const files = data.files || {};
-
-    const tree = buildTree(folders, files);
-    callback(tree);
-  });
+  const data = snap.val();
+  return {
+    folders: data.folders || {},
+    files: data.files || {}
+  };
 }
 
+// Build Tree
+function buildTree(folders, files) {
+  const folderMap = {};
 
+  // Init folderMap
+  Object.entries(folders || {}).forEach(([id, folder]) => {
+    folderMap[id] = { id, ...folder, folders: [], files: [] };
+  });
 
-const unsubscribe = listenProjectTree("workspaceA", "project1", (tree) =&gt; {
-  console.log("Tree updated:", tree);
+  // Link child folders
+  Object.values(folderMap).forEach(folder => {
+    if (folder.parentFolder && folderMap[folder.parentFolder]) {
+      folderMap[folder.parentFolder].folders.push(folder);
+    }
+  });
+
+  // Assign files to folders
+  Object.entries(files || {}).forEach(([id, file]) => {
+    if (file.parentFolder && folderMap[file.parentFolder]) {
+      folderMap[file.parentFolder].files.push({ id, ...file });
+    }
+  });
+
+  // Build root
+  const root = {
+    id: "root",
+    name: "Root",
+    folders: [],
+    files: Object.entries(files || {})
+      .filter(([_, f]) => f.parentFolder === null)
+      .map(([id, f]) => ({ id, ...f }))
+  };
+
+  // Add root-level folders
+  Object.values(folderMap).forEach(folder => {
+    if (!folder.parentFolder) root.folders.push(folder);
+  });
+
+  return root;
+}
+
+// Combine
+async function getProjectTree(workspaceId, projectId) {
+  const { folders, files } = await getProjectData(workspaceId, projectId);
+  return buildTree(folders, files);
+}
+
+// Example Usage
+getProjectTree("workspaceA", "project1").then(tree => {
+  console.log(JSON.stringify(tree, null, 2));
 });
-
-// later when you want to stop listening
-unsubscribe(); 
-
-</code></pre><p data-node-id="c1d74a9c-3a94-4b12-854f-a5f1173d3a63"></p>
-</expandable-block>
+```
